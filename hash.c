@@ -37,6 +37,7 @@
 #include "internal/symbol.h"
 #include "internal/time.h"
 #include "internal/vm.h"
+#include "internal/random.h"
 #include "probes.h"
 #include "ruby/st.h"
 #include "ruby/util.h"
@@ -184,6 +185,11 @@ rb_dbl_long_hash(double d)
 #endif
 }
 
+/* Enable/disable Tabulation Hashing */
+#define TABULATION
+static uint64_t H[8][256];
+static bool h_not_assigned = true;
+
 static inline long
 any_hash(VALUE a, st_index_t (*other_func)(VALUE))
 {
@@ -217,7 +223,25 @@ any_hash(VALUE a, st_index_t (*other_func)(VALUE))
 	hnum = rb_dbl_long_hash(rb_float_value(a));
     }
     else {
-	hnum = other_func(a);
+        if(h_not_assigned){
+            ruby_fill_random_bytes(&H, sizeof H, false);
+            h_not_assigned = false;
+        }
+
+        #ifdef TABULATION
+            /* Simple Tabulation */
+            uint64_t x = rb_obj_id(a);
+            hnum = 0;
+            uint32_t i;
+            uint8_t c;
+            for(i=0; i < 8; i++) {
+                c = x;
+                hnum ^= H[i][c];
+                x >>= 8;
+            }
+        #else
+            hnum = other_func(a);
+        #endif
     }
   out:
 #if SIZEOF_LONG < SIZEOF_ST_INDEX_T
