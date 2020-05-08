@@ -811,7 +811,7 @@ find_entry(st_table *tab, st_hash_t hash_value, st_data_t key)
 /* Use the quadratic probing.  The method has a better data locality
    but more collisions than the current approach.  In average it
    results in a bit slower search.  */
-/*#define QUADRATIC_PROBE*/
+#define QUADRATIC_PROBE
 
 /* Return index of entry with HASH_VALUE and KEY in table TAB.  If
    there is no such entry, return UNDEFINED_ENTRY_IND.  If the table
