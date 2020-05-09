@@ -808,10 +808,11 @@ find_entry(st_table *tab, st_hash_t hash_value, st_data_t key)
     return UNDEFINED_ENTRY_IND;
 }
 
-/* Use the quadratic probing.  The method has a better data locality
-   but more collisions than the current approach.  In average it
-   results in a bit slower search.  */
-/*#define QUADRATIC_PROBE*/
+/* PREVIOUS IMPLEMENTATION: 0,
+   LINEAR PROBING [h(x,i) = h(x) + i]: 1,
+   QUADRATIC PROBING [h(x,i) = h(x) + 1/2i + 1/2i^2]: 2 */
+#define PROBING 1
+
 
 /* Return index of entry with HASH_VALUE and KEY in table TAB.  If
    there is no such entry, return UNDEFINED_ENTRY_IND.  If the table
@@ -821,18 +822,18 @@ find_table_entry_ind(st_table *tab, st_hash_t hash_value, st_data_t key)
 {
     int eq_p, rebuilt_p;
     st_index_t ind;
-#ifdef QUADRATIC_PROBE
+#if PROBING == 2
     st_index_t d;
-#else
+#elif PROBING == 0
     st_index_t peterb;
 #endif
     st_index_t bin;
     st_table_entry *entries = tab->entries;
 
     ind = hash_bin(hash_value, tab);
-#ifdef QUADRATIC_PROBE
+#if PROBING == 2
     d = 1;
-#else
+#elif PROBING == 0
     peterb = hash_value;
 #endif
     FOUND_BIN;
@@ -846,11 +847,13 @@ find_table_entry_ind(st_table *tab, st_hash_t hash_value, st_data_t key)
 		break;
 	} else if (EMPTY_BIN_P(bin))
             return UNDEFINED_ENTRY_IND;
-#ifdef QUADRATIC_PROBE
+#if PROBING == 2
 	ind = hash_bin(ind + d, tab);
 	d++;
-#else
+#elif PROBING == 0
         ind = secondary_hash(ind, tab, &peterb);
+#else
+        ind = hash_bin(ind + 1, tab);
 #endif
         COLLISION;
     }
@@ -866,18 +869,18 @@ find_table_bin_ind(st_table *tab, st_hash_t hash_value, st_data_t key)
 {
     int eq_p, rebuilt_p;
     st_index_t ind;
-#ifdef QUADRATIC_PROBE
+#if PROBING == 2
     st_index_t d;
-#else
+#elif PROBING == 0
     st_index_t peterb;
 #endif
     st_index_t bin;
     st_table_entry *entries = tab->entries;
 
     ind = hash_bin(hash_value, tab);
-#ifdef QUADRATIC_PROBE
+#if PROBING == 2
     d = 1;
-#else
+#elif PROBING == 0
     peterb = hash_value;
 #endif
     FOUND_BIN;
@@ -891,11 +894,13 @@ find_table_bin_ind(st_table *tab, st_hash_t hash_value, st_data_t key)
 		break;
 	} else if (EMPTY_BIN_P(bin))
             return UNDEFINED_BIN_IND;
-#ifdef QUADRATIC_PROBE
+#if PROBING == 2
 	ind = hash_bin(ind + d, tab);
 	d++;
-#else
+#elif PROBING == 0
         ind = secondary_hash(ind, tab, &peterb);
+#else
+        ind = hash_bin(ind + 1, tab);
 #endif
         COLLISION;
     }
@@ -909,17 +914,17 @@ static st_index_t
 find_table_bin_ind_direct(st_table *tab, st_hash_t hash_value, st_data_t key)
 {
     st_index_t ind;
-#ifdef QUADRATIC_PROBE
+#if PROBING == 2
     st_index_t d;
-#else
+#elif PROBING == 0
     st_index_t peterb;
 #endif
     st_index_t bin;
 
     ind = hash_bin(hash_value, tab);
-#ifdef QUADRATIC_PROBE
+#if PROBING == 2
     d = 1;
-#else
+#elif PROBING == 0
     peterb = hash_value;
 #endif
     FOUND_BIN;
@@ -927,11 +932,13 @@ find_table_bin_ind_direct(st_table *tab, st_hash_t hash_value, st_data_t key)
         bin = get_bin(tab->bins, get_size_ind(tab), ind);
         if (EMPTY_OR_DELETED_BIN_P(bin))
 	    return ind;
-#ifdef QUADRATIC_PROBE
+#if PROBING == 2
 	ind = hash_bin(ind + d, tab);
 	d++;
-#else
+#elif PROBING == 0
         ind = secondary_hash(ind, tab, &peterb);
+#else
+        ind = hash_bin(ind + 1, tab);
 #endif
         COLLISION;
     }
@@ -953,9 +960,9 @@ find_table_bin_ptr_and_reserve(st_table *tab, st_hash_t *hash_value,
     int eq_p, rebuilt_p;
     st_index_t ind;
     st_hash_t curr_hash_value = *hash_value;
-#ifdef QUADRATIC_PROBE
+#if PROBING == 2
     st_index_t d;
-#else
+#elif PROBING == 0
     st_index_t peterb;
 #endif
     st_index_t entry_index;
@@ -963,9 +970,9 @@ find_table_bin_ptr_and_reserve(st_table *tab, st_hash_t *hash_value,
     st_table_entry *entries;
 
     ind = hash_bin(curr_hash_value, tab);
-#ifdef QUADRATIC_PROBE
+#if PROBING == 2
     d = 1;
-#else
+#elif PROBING == 0
     peterb = curr_hash_value;
 #endif
     FOUND_BIN;
@@ -992,11 +999,13 @@ find_table_bin_ptr_and_reserve(st_table *tab, st_hash_t *hash_value,
 	}
 	else if (first_deleted_bin_ind == UNDEFINED_BIN_IND)
             first_deleted_bin_ind = ind;
-#ifdef QUADRATIC_PROBE
+#if PROBING == 2
 	ind = hash_bin(ind + d, tab);
 	d++;
-#else
+#elif PROBING == 0
         ind = secondary_hash(ind, tab, &peterb);
+#else
+        ind = hash_bin(ind + 1, tab);
 #endif
         COLLISION;
     }
@@ -2107,9 +2116,9 @@ st_rehash_indexed(st_table *tab)
     for (i = tab->entries_start; i < tab->entries_bound; i++) {
         st_table_entry *p = &tab->entries[i];
         st_index_t ind;
-#ifdef QUADRATIC_PROBE
+#if PROBING == 2
         st_index_t d = 1;
-#else
+#elif PROBING == 0
         st_index_t peterb = p->hash;
 #endif
 
@@ -2139,11 +2148,13 @@ st_rehash_indexed(st_table *tab)
 		}
 		else {
 		    /* hash collision; skip it */
-#ifdef QUADRATIC_PROBE
+#if PROBING == 2
 		    ind = hash_bin(ind + d, tab);
 		    d++;
-#else
+#elif PROBING == 0
 		    ind = secondary_hash(ind, tab, &peterb);
+#else
+                    ind = hash_bin(ind + 1, tab);
 #endif
 		}
 	    }
