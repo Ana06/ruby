@@ -811,7 +811,7 @@ find_entry(st_table *tab, st_hash_t hash_value, st_data_t key)
 /* PREVIOUS IMPLEMENTATION: 0,
    LINEAR PROBING [h(x,i) = h(x) + i]: 1,
    QUADRATIC PROBING [h(x,i) = h(x) + 1/2i + 1/2i^2]: 2 */
-#define PROBING 1
+#define PROBING 2
 
 
 /* Return index of entry with HASH_VALUE and KEY in table TAB.  If
